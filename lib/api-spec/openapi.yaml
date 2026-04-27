@@ -3,20 +3,27 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: StudentHub API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: dashboard
+  - name: subjects
+  - name: lessons
+  - name: tasks
+  - name: debts
+  - name: grades
+  - name: tests
+  - name: notes
+  - name: weekly-plans
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +31,867 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/today:
+    get:
+      operationId: getDashboardToday
+      tags: [dashboard]
+      summary: Today's overview
+      responses:
+        "200":
+          description: Today summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardToday"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Stats summary
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/upcoming-deadlines:
+    get:
+      operationId: getUpcomingDeadlines
+      tags: [dashboard]
+      summary: Closest deadlines across tasks, debts, tests
+      responses:
+        "200":
+          description: Deadlines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deadline"
+
+  /dashboard/free-slots:
+    get:
+      operationId: getFreeSlots
+      tags: [dashboard]
+      summary: Free time slots in the day
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Free slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FreeSlot"
+
+  /week:
+    get:
+      operationId: getWeek
+      tags: [dashboard]
+      summary: Week view with lessons, tasks, tests grouped by day
+      parameters:
+        - name: weekStart
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Week view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeekView"
+
+  /subjects:
+    get:
+      operationId: listSubjects
+      tags: [subjects]
+      responses:
+        "200":
+          description: All subjects with summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubjectWithStats"
+    post:
+      operationId: createSubject
+      tags: [subjects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subject" }
+
+  /subjects/{id}:
+    get:
+      operationId: getSubject
+      tags: [subjects]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Subject details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubjectDetail" }
+    patch:
+      operationId: updateSubject
+      tags: [subjects]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubjectInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subject" }
+    delete:
+      operationId: deleteSubject
+      tags: [subjects]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /lessons:
+    get:
+      operationId: listLessons
+      tags: [lessons]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Lessons
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Lesson" }
+    post:
+      operationId: createLesson
+      tags: [lessons]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LessonInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lesson" }
+
+  /lessons/{id}:
+    patch:
+      operationId: updateLesson
+      tags: [lessons]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LessonInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Lesson" }
+    delete:
+      operationId: deleteLesson
+      tags: [lessons]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+        - { name: status, in: query, required: false, schema: { type: string } }
+        - { name: dueDate, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Task" }
+    post:
+      operationId: createTask
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+
+  /tasks/{id}:
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /debts:
+    get:
+      operationId: listDebts
+      tags: [debts]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+        - { name: status, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Debts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Debt" }
+    post:
+      operationId: createDebt
+      tags: [debts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DebtInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+
+  /debts/{id}:
+    patch:
+      operationId: updateDebt
+      tags: [debts]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DebtInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+    delete:
+      operationId: deleteDebt
+      tags: [debts]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /grades:
+    get:
+      operationId: listGrades
+      tags: [grades]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Grades
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Grade" }
+    post:
+      operationId: createGrade
+      tags: [grades]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GradeInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Grade" }
+
+  /grades/{id}:
+    delete:
+      operationId: deleteGrade
+      tags: [grades]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /grades/summary:
+    get:
+      operationId: getGradeSummary
+      tags: [grades]
+      summary: Average grade per subject and overall
+      responses:
+        "200":
+          description: Grade summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GradeSummary"
+
+  /tests:
+    get:
+      operationId: listTests
+      tags: [tests]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+        - { name: status, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Tests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Test" }
+    post:
+      operationId: createTest
+      tags: [tests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Test" }
+
+  /tests/{id}:
+    patch:
+      operationId: updateTest
+      tags: [tests]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Test" }
+    delete:
+      operationId: deleteTest
+      tags: [tests]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      parameters:
+        - { name: subjectId, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Note" }
+    post:
+      operationId: createNote
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NoteInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+
+  /notes/{id}:
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NoteInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Deleted }
+
+  /weekly-plans/current:
+    get:
+      operationId: getCurrentWeeklyPlan
+      tags: [weekly-plans]
+      responses:
+        "200":
+          description: Current weekly plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklyPlan" }
+    put:
+      operationId: upsertCurrentWeeklyPlan
+      tags: [weekly-plans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WeeklyPlanInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklyPlan" }
+
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
 
+    Subject:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        teacher: { type: ["string", "null"] }
+        color: { type: string }
+        description: { type: ["string", "null"] }
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, color, archived, createdAt]
+
+    SubjectInput:
+      type: object
+      properties:
+        name: { type: string }
+        teacher: { type: ["string", "null"] }
+        color: { type: string }
+        description: { type: ["string", "null"] }
+        archived: { type: boolean }
+      required: [name, color]
+
+    SubjectWithStats:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        teacher: { type: ["string", "null"] }
+        color: { type: string }
+        description: { type: ["string", "null"] }
+        archived: { type: boolean }
+        averageGrade: { type: ["number", "null"] }
+        debtCount: { type: integer }
+        taskCount: { type: integer }
+        upcomingTestCount: { type: integer }
+        nextLesson: { type: ["string", "null"], format: date-time }
+      required: [id, name, color, archived, averageGrade, debtCount, taskCount, upcomingTestCount, nextLesson]
+
+    SubjectDetail:
+      type: object
+      properties:
+        subject: { $ref: "#/components/schemas/Subject" }
+        averageGrade: { type: ["number", "null"] }
+        lessons:
+          type: array
+          items: { $ref: "#/components/schemas/Lesson" }
+        grades:
+          type: array
+          items: { $ref: "#/components/schemas/Grade" }
+        debts:
+          type: array
+          items: { $ref: "#/components/schemas/Debt" }
+        tests:
+          type: array
+          items: { $ref: "#/components/schemas/Test" }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        notes:
+          type: array
+          items: { $ref: "#/components/schemas/Note" }
+      required: [subject, averageGrade, lessons, grades, debts, tests, tasks, notes]
+
+    Lesson:
+      type: object
+      properties:
+        id: { type: integer }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        title: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        location: { type: ["string", "null"] }
+        teacher: { type: ["string", "null"] }
+        source: { type: string }
+        description: { type: ["string", "null"] }
+      required: [id, title, startsAt, endsAt, source]
+
+    LessonInput:
+      type: object
+      properties:
+        subjectId: { type: ["integer", "null"] }
+        title: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        location: { type: ["string", "null"] }
+        teacher: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+      required: [title, startsAt, endsAt]
+
+    Task:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        status: { type: string }
+        priority: { type: string }
+        dueDate: { type: ["string", "null"], format: date-time }
+        estimatedMinutes: { type: ["integer", "null"] }
+        completedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+      required: [id, title, status, priority, createdAt]
+
+    TaskInput:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        subjectId: { type: ["integer", "null"] }
+        status: { type: string }
+        priority: { type: string }
+        dueDate: { type: ["string", "null"], format: date-time }
+        estimatedMinutes: { type: ["integer", "null"] }
+      required: [title]
+
+    Debt:
+      type: object
+      properties:
+        id: { type: integer }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        appearedAt: { type: string, format: date-time }
+        deadline: { type: ["string", "null"], format: date-time }
+        status: { type: string }
+        importance: { type: string }
+        link: { type: ["string", "null"] }
+        comment: { type: ["string", "null"] }
+      required: [id, title, status, importance, appearedAt]
+
+    DebtInput:
+      type: object
+      properties:
+        subjectId: { type: ["integer", "null"] }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        deadline: { type: ["string", "null"], format: date-time }
+        status: { type: string }
+        importance: { type: string }
+        link: { type: ["string", "null"] }
+        comment: { type: ["string", "null"] }
+      required: [title]
+
+    Grade:
+      type: object
+      properties:
+        id: { type: integer }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        value: { type: number }
+        maxValue: { type: number }
+        kind: { type: string }
+        receivedAt: { type: string, format: date }
+        weight: { type: number }
+        comment: { type: ["string", "null"] }
+      required: [id, value, maxValue, kind, receivedAt, weight]
+
+    GradeInput:
+      type: object
+      properties:
+        subjectId: { type: ["integer", "null"] }
+        value: { type: number }
+        maxValue: { type: number }
+        kind: { type: string }
+        receivedAt: { type: string, format: date }
+        weight: { type: number }
+        comment: { type: ["string", "null"] }
+      required: [value, maxValue, kind, receivedAt]
+
+    GradeSummary:
+      type: object
+      properties:
+        overallAverage: { type: ["number", "null"] }
+        bySubject:
+          type: array
+          items:
+            type: object
+            properties:
+              subjectId: { type: integer }
+              subjectName: { type: string }
+              subjectColor: { type: string }
+              average: { type: ["number", "null"] }
+              count: { type: integer }
+            required: [subjectId, subjectName, subjectColor, average, count]
+      required: [overallAverage, bySubject]
+
+    Test:
+      type: object
+      properties:
+        id: { type: integer }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        title: { type: string }
+        scheduledAt: { type: string, format: date-time }
+        deadline: { type: ["string", "null"], format: date-time }
+        status: { type: string }
+        result: { type: ["string", "null"] }
+        link: { type: ["string", "null"] }
+        importance: { type: string }
+        needsPreparation: { type: boolean }
+        preparationPlan: { type: ["string", "null"] }
+      required: [id, title, scheduledAt, status, importance, needsPreparation]
+
+    TestInput:
+      type: object
+      properties:
+        subjectId: { type: ["integer", "null"] }
+        title: { type: string }
+        scheduledAt: { type: string, format: date-time }
+        deadline: { type: ["string", "null"], format: date-time }
+        status: { type: string }
+        result: { type: ["string", "null"] }
+        link: { type: ["string", "null"] }
+        importance: { type: string }
+        needsPreparation: { type: boolean }
+        preparationPlan: { type: ["string", "null"] }
+      required: [title, scheduledAt]
+
+    Note:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        content: { type: string }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, content, tags, createdAt, updatedAt]
+
+    NoteInput:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        subjectId: { type: ["integer", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+      required: [title, content]
+
+    WeeklyPlan:
+      type: object
+      properties:
+        id: { type: integer }
+        weekStartDate: { type: string, format: date }
+        goals: { type: string }
+        notes: { type: string }
+        status: { type: string }
+        updatedAt: { type: string, format: date-time }
+      required: [id, weekStartDate, goals, notes, status, updatedAt]
+
+    WeeklyPlanInput:
+      type: object
+      properties:
+        weekStartDate: { type: string, format: date }
+        goals: { type: string }
+        notes: { type: string }
+        status: { type: string }
+      required: [weekStartDate, goals, notes, status]
+
+    DashboardToday:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        lessons:
+          type: array
+          items: { $ref: "#/components/schemas/Lesson" }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        debts:
+          type: array
+          items: { $ref: "#/components/schemas/Debt" }
+        upcomingTests:
+          type: array
+          items: { $ref: "#/components/schemas/Test" }
+        freeSlots:
+          type: array
+          items: { $ref: "#/components/schemas/FreeSlot" }
+        stats: { $ref: "#/components/schemas/DashboardStats" }
+      required: [date, lessons, tasks, debts, upcomingTests, freeSlots, stats]
+
+    DashboardStats:
+      type: object
+      properties:
+        tasksToday: { type: integer }
+        tasksDoneToday: { type: integer }
+        tasksTotal: { type: integer }
+        tasksDoneTotal: { type: integer }
+        openDebts: { type: integer }
+        upcomingTests7d: { type: integer }
+        lessonsToday: { type: integer }
+        averageGrade: { type: ["number", "null"] }
+      required: [tasksToday, tasksDoneToday, tasksTotal, tasksDoneTotal, openDebts, upcomingTests7d, lessonsToday, averageGrade]
+
+    Deadline:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        title: { type: string }
+        subjectId: { type: ["integer", "null"] }
+        subjectName: { type: ["string", "null"] }
+        subjectColor: { type: ["string", "null"] }
+        dueAt: { type: string, format: date-time }
+        importance: { type: string }
+      required: [id, kind, title, dueAt, importance]
+
+    FreeSlot:
+      type: object
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        durationMinutes: { type: integer }
+      required: [startsAt, endsAt, durationMinutes]
+
+    WeekView:
+      type: object
+      properties:
+        weekStart: { type: string, format: date }
+        weekEnd: { type: string, format: date }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/WeekDay" }
+      required: [weekStart, weekEnd, days]
+
+    WeekDay:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        weekday: { type: integer }
+        lessons:
+          type: array
+          items: { $ref: "#/components/schemas/Lesson" }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        tests:
+          type: array
+          items: { $ref: "#/components/schemas/Test" }
+        debts:
+          type: array
+          items: { $ref: "#/components/schemas/Debt" }
+        loadScore: { type: integer }
+      required: [date, weekday, lessons, tasks, tests, debts, loadScore]
