@@ -49,7 +49,7 @@ args = "PORT=21995 BASE_PATH=/ API_PROXY_TARGET=http://localhost:8080 pnpm --fil
 waitForPort = 21995
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
