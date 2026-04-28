@@ -4,9 +4,23 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMemo } from "react";
+import { useSettings } from "@/contexts/settings";
+import { computeFreeSlots } from "@/lib/free-slots";
 
 export function Dashboard() {
   const { data, isLoading } = useGetDashboardToday();
+  const { settings } = useSettings();
+
+  const freeSlots = useMemo(() => {
+    if (!data) return [];
+    return computeFreeSlots(
+      new Date(data.date),
+      data.lessons.map((l) => ({ startsAt: l.startsAt, endsAt: l.endsAt })),
+      settings.dayStart,
+      settings.dayEnd,
+    );
+  }, [data, settings.dayStart, settings.dayEnd]);
 
   if (isLoading) {
     return (
@@ -95,9 +109,9 @@ export function Dashboard() {
 
         <div>
           <h3 className="text-xl font-semibold mb-4 border-b pb-2">Свободные окна</h3>
-          {data.freeSlots.length > 0 ? (
+          {freeSlots.length > 0 ? (
             <div className="space-y-3">
-              {data.freeSlots.map((slot, i) => (
+              {freeSlots.map((slot, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 bg-secondary rounded-md">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-medium">{format(new Date(slot.startsAt), "HH:mm", { locale: ru })} – {format(new Date(slot.endsAt), "HH:mm", { locale: ru })}</span>

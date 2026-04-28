@@ -37,6 +37,8 @@ import { ru } from "date-fns/locale";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
+import { isUrgent } from "@/lib/free-slots";
+import { useSettings } from "@/contexts/settings";
 
 const STATUS_OPTIONS = [
   { value: "scheduled", label: "Запланирован" },
@@ -314,6 +316,7 @@ export function TestsPage() {
   const deleteTest = useDeleteTest();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Test | null>(null);
 
@@ -385,10 +388,21 @@ export function TestsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-right">
-                    <div className="font-medium">
+                    <div
+                      className={
+                        test.status === "scheduled" &&
+                        isUrgent(test.scheduledAt, settings.reminderHours)
+                          ? "font-medium text-destructive"
+                          : "font-medium"
+                      }
+                    >
                       {format(new Date(test.scheduledAt), "d MMM HH:mm", {
                         locale: ru,
                       })}
+                      {test.status === "scheduled" &&
+                      isUrgent(test.scheduledAt, settings.reminderHours)
+                        ? " — скоро"
+                        : ""}
                     </div>
                     <span className="text-xs px-2 py-1 bg-secondary rounded mt-1 inline-block">
                       {STATUS_OPTIONS.find((s) => s.value === test.status)

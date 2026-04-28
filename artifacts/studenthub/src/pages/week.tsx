@@ -37,6 +37,7 @@ import { SubjectSelect } from "@/components/subject-select";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
+import { useSettings } from "@/contexts/settings";
 
 interface LessonFormState {
   title: string;
@@ -89,7 +90,17 @@ interface LessonDialogProps {
   onOpenChange: (open: boolean) => void;
   lesson?: Lesson | null;
   defaultDate?: string;
+  defaultDurationMinutes?: number;
   onSaved: () => void;
+}
+
+function addMinutesToLocal(local: string, minutes: number): string {
+  if (!local) return "";
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setMinutes(d.getMinutes() + minutes);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function LessonDialog({
@@ -97,6 +108,7 @@ function LessonDialog({
   onOpenChange,
   lesson,
   defaultDate,
+  defaultDurationMinutes = 90,
   onSaved,
 }: LessonDialogProps) {
   const { toast } = useToast();
@@ -107,9 +119,27 @@ function LessonDialog({
 
   const handleOpenChange = (next: boolean) => {
     if (next) {
-      setForm(lesson ? lessonToForm(lesson) : emptyForm(defaultDate));
+      if (lesson) {
+        setForm(lessonToForm(lesson));
+      } else {
+        const f = emptyForm(defaultDate);
+        if (f.startsAt) {
+          f.endsAt = addMinutesToLocal(f.startsAt, defaultDurationMinutes);
+        }
+        setForm(f);
+      }
     }
     onOpenChange(next);
+  };
+
+  const handleStartChange = (value: string) => {
+    setForm((prev) => {
+      const next = { ...prev, startsAt: value };
+      if (!isEdit && value && !prev.endsAt) {
+        next.endsAt = addMinutesToLocal(value, defaultDurationMinutes);
+      }
+      return next;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -185,9 +215,7 @@ function LessonDialog({
                   id="lesson-start"
                   type="datetime-local"
                   value={form.startsAt}
-                  onChange={(e) =>
-                    setForm({ ...form, startsAt: e.target.value })
-                  }
+                  onChange={(e) => handleStartChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -252,8 +280,10 @@ function LessonDialog({
 }
 
 export function WeekPage() {
+  const { settings } = useSettings();
+  const weekStartsOn = settings.weekStartsOn;
   const [weekStart, setWeekStart] = useState<Date>(
-    startOfWeek(new Date(), { weekStartsOn: 1 }),
+    startOfWeek(new Date(), { weekStartsOn }),
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Lesson | null>(null);
@@ -321,7 +351,7 @@ export function WeekPage() {
           <Button
             variant="outline"
             onClick={() =>
-              setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
+              setWeekStart(startOfWeek(new Date(), { weekStartsOn }))
             }
           >
             Эта неделя
@@ -431,6 +461,7 @@ export function WeekPage() {
         onOpenChange={setDialogOpen}
         lesson={editing}
         defaultDate={defaultDate}
+        defaultDurationMinutes={settings.defaultLessonDurationMinutes}
         onSaved={invalidate}
       />
     </div>

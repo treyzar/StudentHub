@@ -14,6 +14,7 @@ import { GradesPage } from "@/pages/grades";
 import { TestsPage } from "@/pages/tests";
 import { NotesPage } from "@/pages/notes";
 import { SettingsPage } from "@/pages/settings";
+import { SettingsProvider } from "@/contexts/settings";
 
 const queryClient = new QueryClient();
 
@@ -40,12 +41,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <SettingsProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </SettingsProvider>
     </QueryClientProvider>
   );
 }

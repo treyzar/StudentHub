@@ -38,6 +38,8 @@ import { ru } from "date-fns/locale";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
+import { isUrgent } from "@/lib/free-slots";
+import { useSettings } from "@/contexts/settings";
 
 const STATUS_OPTIONS = [
   { value: "todo", label: "К выполнению" },
@@ -282,6 +284,7 @@ export function TasksPage() {
   const deleteTask = useDeleteTask();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { settings } = useSettings();
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
@@ -409,10 +412,25 @@ export function TasksPage() {
                   </div>
                 </div>
                 {task.dueDate && (
-                  <div className="text-sm text-muted-foreground hidden sm:block">
-                    {format(new Date(task.dueDate), "d MMM HH:mm", {
-                      locale: ru,
-                    })}
+                  <div className="text-sm hidden sm:block text-right">
+                    <div
+                      className={
+                        task.status !== "done" &&
+                        isUrgent(task.dueDate, settings.reminderHours)
+                          ? "text-destructive font-medium"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {format(new Date(task.dueDate), "d MMM HH:mm", {
+                        locale: ru,
+                      })}
+                    </div>
+                    {task.status !== "done" &&
+                      isUrgent(task.dueDate, settings.reminderHours) && (
+                        <div className="text-[10px] text-destructive uppercase tracking-wide">
+                          скоро
+                        </div>
+                      )}
                   </div>
                 )}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

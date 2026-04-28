@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -10,8 +10,28 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, FileSpreadsheet, ExternalLink, LogOut } from "lucide-react";
+import {
+  Calendar,
+  FileSpreadsheet,
+  ExternalLink,
+  LogOut,
+  Download,
+  Upload,
+  Trash2,
+  Sun,
+  Moon,
+  Monitor,
+} from "lucide-react";
+import { useSettings, type ThemeMode } from "@/contexts/settings";
 
 const apiUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
@@ -344,33 +364,417 @@ function GoogleSection() {
   );
 }
 
-export function SettingsPage() {
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== "undefined"
-      ? document.documentElement.classList.contains("dark")
-      : false,
-  );
-  const toggleDark = (checked: boolean) => {
-    setIsDark(checked);
-    document.documentElement.classList.toggle("dark", checked);
+function ProfileSection() {
+  const { settings, setSettings } = useSettings();
+  const { toast } = useToast();
+  const [name, setName] = useState(settings.userName);
+
+  useEffect(() => {
+    setName(settings.userName);
+  }, [settings.userName]);
+
+  const save = () => {
+    setSettings({ userName: name.trim() });
+    toast({ title: "Профиль сохранён" });
   };
 
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Профиль</CardTitle>
+        <CardDescription>
+          Имя отображается в боковой панели.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2 max-w-sm">
+          <Label htmlFor="user-name">Имя</Label>
+          <Input
+            id="user-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Например: Иван Иванов"
+          />
+        </div>
+        <Button onClick={save} disabled={name === settings.userName}>
+          Сохранить
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AppearanceSection() {
+  const { settings, setSettings } = useSettings();
+
+  const options: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Светлая", icon: Sun },
+    { value: "dark", label: "Тёмная", icon: Moon },
+    { value: "system", label: "Как в системе", icon: Monitor },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Внешний вид</CardTitle>
+        <CardDescription>Тема оформления интерфейса.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3 max-w-md">
+          {options.map((opt) => {
+            const Icon = opt.icon;
+            const active = settings.theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSettings({ theme: opt.value })}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
+                  active
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-sm">{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SchedulePreferencesSection() {
+  const { settings, setSettings } = useSettings();
+  const { toast } = useToast();
+  const [dayStart, setDayStart] = useState(settings.dayStart);
+  const [dayEnd, setDayEnd] = useState(settings.dayEnd);
+  const [duration, setDuration] = useState(
+    String(settings.defaultLessonDurationMinutes),
+  );
+
+  useEffect(() => {
+    setDayStart(settings.dayStart);
+    setDayEnd(settings.dayEnd);
+    setDuration(String(settings.defaultLessonDurationMinutes));
+  }, [
+    settings.dayStart,
+    settings.dayEnd,
+    settings.defaultLessonDurationMinutes,
+  ]);
+
+  const save = () => {
+    const dur = parseInt(duration, 10);
+    if (!Number.isFinite(dur) || dur <= 0 || dur > 600) {
+      toast({
+        title: "Длительность пары должна быть от 1 до 600 минут",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (dayEnd <= dayStart) {
+      toast({
+        title: "Конец дня должен быть позже начала",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSettings({
+      dayStart,
+      dayEnd,
+      defaultLessonDurationMinutes: dur,
+    });
+    toast({ title: "Настройки расписания сохранены" });
+  };
+
+  const dirty =
+    dayStart !== settings.dayStart ||
+    dayEnd !== settings.dayEnd ||
+    duration !== String(settings.defaultLessonDurationMinutes);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Расписание</CardTitle>
+        <CardDescription>
+          Влияет на свободные окна на дашборде, неделю и быстрое создание пар.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+          <div className="space-y-2">
+            <Label htmlFor="day-start">Начало учебного дня</Label>
+            <Input
+              id="day-start"
+              type="time"
+              value={dayStart}
+              onChange={(e) => setDayStart(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="day-end">Конец учебного дня</Label>
+            <Input
+              id="day-end"
+              type="time"
+              value={dayEnd}
+              onChange={(e) => setDayEnd(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 max-w-md">
+          <Label>День начала недели</Label>
+          <Select
+            value={String(settings.weekStartsOn)}
+            onValueChange={(v) =>
+              setSettings({ weekStartsOn: v === "0" ? 0 : 1 })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Понедельник</SelectItem>
+              <SelectItem value="0">Воскресенье</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2 max-w-md">
+          <Label htmlFor="lesson-dur">
+            Длительность пары по умолчанию (минут)
+          </Label>
+          <Input
+            id="lesson-dur"
+            type="number"
+            min={1}
+            max={600}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Используется при создании новой пары — конец заполняется
+            автоматически.
+          </p>
+        </div>
+
+        <Button onClick={save} disabled={!dirty}>
+          Сохранить
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReminderSection() {
+  const { settings, setSettings } = useSettings();
+  const { toast } = useToast();
+  const [hours, setHours] = useState(String(settings.reminderHours));
+
+  useEffect(() => {
+    setHours(String(settings.reminderHours));
+  }, [settings.reminderHours]);
+
+  const save = () => {
+    const n = parseInt(hours, 10);
+    if (!Number.isFinite(n) || n < 0 || n > 720) {
+      toast({
+        title: "Введите число от 0 до 720",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSettings({ reminderHours: n });
+    toast({ title: "Сохранено" });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Напоминания</CardTitle>
+        <CardDescription>
+          За сколько часов до дедлайна выделять задачи, долги и тесты как
+          срочные.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2 max-w-xs">
+          <Label htmlFor="reminder-hours">Порог (часов)</Label>
+          <Input
+            id="reminder-hours"
+            type="number"
+            min={0}
+            max={720}
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Например, 24 = выделять всё с дедлайном в ближайшие сутки.
+          </p>
+        </div>
+        <Button onClick={save} disabled={hours === String(settings.reminderHours)}>
+          Сохранить
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DataManagementSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<null | "export" | "import" | "clear">(null);
+
+  const handleExport = async () => {
+    setBusy("export");
+    try {
+      const res = await fetch(apiUrl("api/admin/export"));
+      if (!res.ok) throw new Error("export failed");
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `studenthub-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "Экспорт готов" });
+    } catch {
+      toast({ title: "Не удалось выгрузить данные", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleImportFile = async (file: File) => {
+    if (
+      !confirm(
+        "Импорт ЗАМЕНИТ все текущие данные. Продолжить?",
+      )
+    )
+      return;
+    setBusy("import");
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const payload =
+        parsed && typeof parsed === "object" && "data" in parsed
+          ? parsed
+          : { data: parsed };
+      const res = await fetch(apiUrl("api/admin/import"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, replace: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "import failed");
+      }
+      await queryClient.invalidateQueries();
+      toast({ title: "Данные импортированы" });
+    } catch (e) {
+      toast({
+        title: "Не удалось импортировать",
+        description: e instanceof Error ? e.message : undefined,
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleClear = async () => {
+    const confirmation = prompt(
+      'Это удалит ВСЕ предметы, пары, задачи, долги, оценки, тесты и заметки. Введите "УДАЛИТЬ" для подтверждения.',
+    );
+    if (confirmation !== "УДАЛИТЬ") {
+      toast({ title: "Очистка отменена" });
+      return;
+    }
+    setBusy("clear");
+    try {
+      const res = await fetch(apiUrl("api/admin/data"), { method: "DELETE" });
+      if (!res.ok) throw new Error("clear failed");
+      await queryClient.invalidateQueries();
+      toast({ title: "Все данные удалены" });
+    } catch {
+      toast({ title: "Не удалось очистить", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Данные</CardTitle>
+        <CardDescription>
+          Резервное копирование, импорт и полная очистка.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={busy !== null}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {busy === "export" ? "Экспорт..." : "Экспорт в JSON"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy !== null}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {busy === "import" ? "Импорт..." : "Импорт из JSON"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportFile(file);
+            }}
+          />
+          <Button
+            variant="destructive"
+            onClick={handleClear}
+            disabled={busy !== null}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {busy === "clear" ? "Удаление..." : "Очистить все данные"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Импорт полностью заменит текущие данные. Сделай экспорт перед этим.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function SettingsPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <h2 className="text-3xl font-bold">Настройки</h2>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Внешний вид</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <Label htmlFor="dark-mode" className="text-base">
-            Тёмная тема
-          </Label>
-          <Switch id="dark-mode" checked={isDark} onCheckedChange={toggleDark} />
-        </CardContent>
-      </Card>
-
+      <ProfileSection />
+      <AppearanceSection />
+      <SchedulePreferencesSection />
+      <ReminderSection />
+      <DataManagementSection />
       <GoogleSection />
     </div>
   );

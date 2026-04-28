@@ -10,6 +10,7 @@ import notesRouter from "./notes";
 import weeklyPlansRouter from "./weeklyPlans";
 import dashboardRouter from "./dashboard";
 import googleRouter from "./google";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(notesRouter);
 router.use(weeklyPlansRouter);
 router.use(dashboardRouter);
 router.use(googleRouter);
+router.use(adminRouter);
 
 export default router;

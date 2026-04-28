@@ -36,6 +36,8 @@ import { ru } from "date-fns/locale";
 import { AlertCircle, Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
+import { isUrgent } from "@/lib/free-slots";
+import { useSettings } from "@/contexts/settings";
 
 const STATUS_OPTIONS = [
   { value: "open", label: "Открыт" },
@@ -275,6 +277,7 @@ export function DebtsPage() {
   const deleteDebt = useDeleteDebt();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Debt | null>(null);
 
@@ -361,11 +364,22 @@ export function DebtsPage() {
                         : "Закрыт"}
                   </span>
                   {debt.deadline && (
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p
+                      className={
+                        debt.status !== "closed" &&
+                        isUrgent(debt.deadline, settings.reminderHours)
+                          ? "text-xs text-destructive font-medium mt-2"
+                          : "text-xs text-muted-foreground mt-2"
+                      }
+                    >
                       До{" "}
                       {format(new Date(debt.deadline), "d MMM HH:mm", {
                         locale: ru,
                       })}
+                      {debt.status !== "closed" &&
+                      isUrgent(debt.deadline, settings.reminderHours)
+                        ? " — скоро"
+                        : ""}
                     </p>
                   )}
                 </div>
