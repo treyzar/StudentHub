@@ -6,7 +6,6 @@ import {
   UpdateLessonBody,
   UpdateLessonParams,
   DeleteLessonParams,
-  ListLessonsQueryParams,
 } from "@workspace/api-zod";
 import { mapLesson } from "../lib/mappers";
 import { loadSubjectsByIds } from "../lib/subjectLookup";
@@ -14,13 +13,35 @@ import { loadSubjectsByIds } from "../lib/subjectLookup";
 const router: IRouter = Router();
 
 router.get("/lessons", async (req, res): Promise<void> => {
-  const q = ListLessonsQueryParams.safeParse(req.query);
-  if (!q.success) { res.status(400).json({ error: q.error.message }); return; }
+  const subjectIdRaw = req.query.subjectId;
+  const fromRaw = req.query.from;
+  const toRaw = req.query.to;
 
   const conditions = [];
-  if (q.data.subjectId !== undefined) conditions.push(eq(lessonsTable.subjectId, q.data.subjectId));
-  if (q.data.from) conditions.push(gte(lessonsTable.startsAt, new Date(q.data.from)));
-  if (q.data.to) conditions.push(lte(lessonsTable.startsAt, new Date(q.data.to)));
+  if (typeof subjectIdRaw === "string" && subjectIdRaw !== "") {
+    const n = Number(subjectIdRaw);
+    if (Number.isNaN(n)) {
+      res.status(400).json({ error: "Invalid subjectId" });
+      return;
+    }
+    conditions.push(eq(lessonsTable.subjectId, n));
+  }
+  if (typeof fromRaw === "string" && fromRaw !== "") {
+    const d = new Date(fromRaw);
+    if (Number.isNaN(d.getTime())) {
+      res.status(400).json({ error: "Invalid from date" });
+      return;
+    }
+    conditions.push(gte(lessonsTable.startsAt, d));
+  }
+  if (typeof toRaw === "string" && toRaw !== "") {
+    const d = new Date(toRaw);
+    if (Number.isNaN(d.getTime())) {
+      res.status(400).json({ error: "Invalid to date" });
+      return;
+    }
+    conditions.push(lte(lessonsTable.startsAt, d));
+  }
 
   const rows = await db.select().from(lessonsTable)
     .where(conditions.length ? and(...conditions) : undefined)

@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   BookOpen,
   CalendarDays,
+  CalendarRange,
   CheckSquare,
   GraduationCap,
   LayoutDashboard,
@@ -15,6 +16,7 @@ import { useSettings, getInitials } from "@/contexts/settings";
 const navItems = [
   { href: "/", label: "Сегодня", icon: LayoutDashboard },
   { href: "/week", label: "Неделя", icon: CalendarDays },
+  { href: "/month", label: "Месяц", icon: CalendarRange },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/subjects", label: "Предметы", icon: BookOpen },
   { href: "/debts", label: "Долги", icon: Wallet },
