@@ -45,7 +45,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=21995 BASE_PATH=/ pnpm --filter @workspace/studenthub run dev"
+args = "PORT=21995 BASE_PATH=/ API_PROXY_TARGET=http://localhost:8080 pnpm --filter @workspace/studenthub run dev"
 waitForPort = 21995
 
 [agent]
