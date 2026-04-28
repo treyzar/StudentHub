@@ -6,3 +6,4 @@ export * from "./grades";
 export * from "./tests";
 export * from "./notes";
 export * from "./weeklyPlans";
+export * from "./googleAccount";

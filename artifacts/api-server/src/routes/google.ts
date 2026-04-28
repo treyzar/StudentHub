@@ -1,0 +1,197 @@
+import { Router, type IRouter } from "express";
+import crypto from "node:crypto";
+import { google } from "googleapis";
+import {
+  buildAuthUrl,
+  buildOAuthClient,
+  deleteStoredAccount,
+  getAuthorizedClient,
+  getStoredAccount,
+  upsertAccount,
+} from "../lib/google";
+import { logger } from "../lib/logger";
+
+const router: IRouter = Router();
+
+const STATE_COOKIE = "google_oauth_state";
+const RETURN_COOKIE = "google_oauth_return";
+
+function isConfigured(): boolean {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+router.get("/google/status", async (_req, res): Promise<void> => {
+  if (!isConfigured()) {
+    res.json({
+      configured: false,
+      connected: false,
+      account: null,
+    });
+    return;
+  }
+  const account = await getStoredAccount();
+  res.json({
+    configured: true,
+    connected: Boolean(account),
+    account: account
+      ? {
+          email: account.email,
+          name: account.name,
+          picture: account.picture,
+          connectedAt: account.createdAt.toISOString(),
+        }
+      : null,
+  });
+});
+
+router.get("/google/auth", (req, res): void => {
+  if (!isConfigured()) {
+    res.status(400).json({
+      error: "Google OAuth не настроен. Задайте GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET.",
+    });
+    return;
+  }
+  const state = crypto.randomBytes(24).toString("hex");
+  const returnTo = typeof req.query.returnTo === "string" ? req.query.returnTo : "/settings";
+
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: true,
+    maxAge: 10 * 60 * 1000,
+    path: "/",
+  };
+  res.cookie(STATE_COOKIE, state, cookieOptions);
+  res.cookie(RETURN_COOKIE, returnTo, cookieOptions);
+
+  try {
+    const url = buildAuthUrl(state);
+    res.redirect(url);
+  } catch (err) {
+    logger.error({ err }, "Failed to build Google OAuth URL");
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+router.get("/google/callback", async (req, res): Promise<void> => {
+  const { code, state, error: errorParam } = req.query as Record<string, string | undefined>;
+  const cookies = req.cookies as Record<string, string | undefined>;
+  const expectedState = cookies[STATE_COOKIE];
+  const returnTo = cookies[RETURN_COOKIE] || "/settings";
+
+  res.clearCookie(STATE_COOKIE, { path: "/" });
+  res.clearCookie(RETURN_COOKIE, { path: "/" });
+
+  if (errorParam) {
+    res.redirect(`${returnTo}?google=error&reason=${encodeURIComponent(errorParam)}`);
+    return;
+  }
+
+  if (!code || !state || !expectedState || state !== expectedState) {
+    res.redirect(`${returnTo}?google=error&reason=state`);
+    return;
+  }
+
+  try {
+    const client = buildOAuthClient();
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+
+    const oauth2 = google.oauth2({ version: "v2", auth: client });
+    const profile = await oauth2.userinfo.get();
+    const data = profile.data;
+
+    if (!data.id || !data.email) {
+      res.redirect(`${returnTo}?google=error&reason=profile`);
+      return;
+    }
+
+    await upsertAccount({
+      googleUserId: data.id,
+      email: data.email,
+      name: data.name ?? null,
+      picture: data.picture ?? null,
+      accessToken: tokens.access_token!,
+      refreshToken: tokens.refresh_token ?? null,
+      scope: tokens.scope ?? null,
+      tokenType: tokens.token_type ?? null,
+      expiryDate: tokens.expiry_date ?? null,
+    });
+
+    res.redirect(`${returnTo}?google=ok`);
+  } catch (err) {
+    logger.error({ err }, "Google OAuth callback failed");
+    res.redirect(`${returnTo}?google=error&reason=exchange`);
+  }
+});
+
+router.post("/google/disconnect", async (_req, res): Promise<void> => {
+  await deleteStoredAccount();
+  res.json({ ok: true });
+});
+
+router.get("/google/calendar/upcoming", async (_req, res): Promise<void> => {
+  const client = await getAuthorizedClient();
+  if (!client) {
+    res.status(401).json({ error: "Google не подключён" });
+    return;
+  }
+  try {
+    const calendar = google.calendar({ version: "v3", auth: client });
+    const now = new Date();
+    const inFuture = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 14);
+    const result = await calendar.events.list({
+      calendarId: "primary",
+      timeMin: now.toISOString(),
+      timeMax: inFuture.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 20,
+    });
+
+    const items = (result.data.items ?? []).map((e) => ({
+      id: e.id,
+      summary: e.summary ?? "(без названия)",
+      description: e.description ?? null,
+      location: e.location ?? null,
+      htmlLink: e.htmlLink ?? null,
+      start: e.start?.dateTime ?? e.start?.date ?? null,
+      end: e.end?.dateTime ?? e.end?.date ?? null,
+      allDay: Boolean(e.start?.date && !e.start?.dateTime),
+    }));
+    res.json({ events: items });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch calendar events");
+    res.status(500).json({ error: "Не удалось получить события календаря" });
+  }
+});
+
+router.get("/google/sheets/list", async (_req, res): Promise<void> => {
+  const client = await getAuthorizedClient();
+  if (!client) {
+    res.status(401).json({ error: "Google не подключён" });
+    return;
+  }
+  try {
+    const drive = google.drive({ version: "v3", auth: client });
+    const result = await drive.files.list({
+      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+      pageSize: 20,
+      fields: "files(id, name, modifiedTime, webViewLink, owners(displayName))",
+      orderBy: "modifiedTime desc",
+    });
+    const items = (result.data.files ?? []).map((f) => ({
+      id: f.id!,
+      name: f.name ?? "(без названия)",
+      modifiedTime: f.modifiedTime ?? null,
+      webViewLink: f.webViewLink ?? null,
+      owner: f.owners?.[0]?.displayName ?? null,
+    }));
+    res.json({ spreadsheets: items });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch spreadsheets");
+    res.status(500).json({ error: "Не удалось получить таблицы" });
+  }
+});
+
+export default router;
