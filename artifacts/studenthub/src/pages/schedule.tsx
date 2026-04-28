@@ -64,7 +64,7 @@ export function SchedulePage() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Расписание</h2>
+          <h2 className="text-3xl font-bold">Планирование</h2>
           <p className="text-muted-foreground mt-1">
             Таблица из Google Sheets, подключённой к твоему аккаунту.
           </p>
