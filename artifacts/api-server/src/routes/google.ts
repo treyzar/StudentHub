@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import crypto from "node:crypto";
 import { google } from "googleapis";
+import { and, eq } from "drizzle-orm";
+import { db, lessonsTable } from "@workspace/db";
 import {
   buildAuthUrl,
   buildOAuthClient,
@@ -167,6 +169,129 @@ router.get("/google/calendar/upcoming", async (_req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "Failed to fetch calendar events");
     res.status(500).json({ error: "Не удалось получить события календаря" });
+  }
+});
+
+router.post("/google/calendar/import", async (req, res): Promise<void> => {
+  const client = await getAuthorizedClient();
+  if (!client) {
+    res.status(401).json({ error: "Google не подключён" });
+    return;
+  }
+
+  const daysBackRaw = req.body?.daysBack;
+  const daysAheadRaw = req.body?.daysAhead;
+  const daysBack =
+    typeof daysBackRaw === "number" && daysBackRaw >= 0 && daysBackRaw <= 365
+      ? Math.floor(daysBackRaw)
+      : 30;
+  const daysAhead =
+    typeof daysAheadRaw === "number" && daysAheadRaw >= 0 && daysAheadRaw <= 365
+      ? Math.floor(daysAheadRaw)
+      : 90;
+
+  try {
+    const calendar = google.calendar({ version: "v3", auth: client });
+    const now = new Date();
+    const timeMin = new Date(now.getTime() - daysBack * 86400000);
+    const timeMax = new Date(now.getTime() + daysAhead * 86400000);
+
+    const events: Array<{
+      id: string;
+      summary: string;
+      description: string | null;
+      location: string | null;
+      start: string;
+      end: string;
+    }> = [];
+    let skipped = 0;
+    let pageToken: string | undefined = undefined;
+    let safety = 0;
+    while (safety < 20) {
+      safety += 1;
+      const result = await calendar.events.list({
+        calendarId: "primary",
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: true,
+        orderBy: "startTime",
+        maxResults: 250,
+        ...(pageToken ? { pageToken } : {}),
+      });
+      for (const e of result.data.items ?? []) {
+        const startIso = e.start?.dateTime;
+        const endIso = e.end?.dateTime;
+        if (!e.id || !startIso || !endIso) {
+          if (e.id) skipped += 1;
+          continue;
+        }
+        events.push({
+          id: e.id,
+          summary: e.summary ?? "(без названия)",
+          description: e.description ?? null,
+          location: e.location ?? null,
+          start: startIso,
+          end: endIso,
+        });
+      }
+      pageToken = result.data.nextPageToken ?? undefined;
+      if (!pageToken) break;
+    }
+
+    let created = 0;
+    let updated = 0;
+    for (const ev of events) {
+      const existing = await db
+        .select({ id: lessonsTable.id })
+        .from(lessonsTable)
+        .where(
+          and(
+            eq(lessonsTable.source, "google"),
+            eq(lessonsTable.externalId, ev.id),
+          ),
+        )
+        .limit(1);
+
+      const values = {
+        title: ev.summary,
+        startsAt: new Date(ev.start),
+        endsAt: new Date(ev.end),
+        location: ev.location,
+        description: ev.description,
+      };
+
+      if (existing[0]) {
+        await db
+          .update(lessonsTable)
+          .set(values)
+          .where(eq(lessonsTable.id, existing[0].id));
+        updated += 1;
+      } else {
+        await db.insert(lessonsTable).values({
+          ...values,
+          source: "google",
+          externalId: ev.id,
+          subjectId: null,
+          teacher: null,
+        });
+        created += 1;
+      }
+    }
+
+    res.json({
+      ok: true,
+      total: events.length,
+      created,
+      updated,
+      skipped,
+      rangeFrom: timeMin.toISOString(),
+      rangeTo: timeMax.toISOString(),
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to import calendar events");
+    res
+      .status(500)
+      .json({ error: "Не удалось импортировать события календаря" });
   }
 });
 

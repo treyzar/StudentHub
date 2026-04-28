@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  getGetWeekQueryKey,
+  getListLessonsQueryKey,
+  getGetDashboardTodayQueryKey,
+} from "@workspace/api-client-react";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -131,6 +136,47 @@ function GoogleSection() {
       queryClient.invalidateQueries({ queryKey: ["google-status"] });
       queryClient.removeQueries({ queryKey: ["google-calendar-upcoming"] });
       queryClient.removeQueries({ queryKey: ["google-sheets-list"] });
+    },
+  });
+
+  const importMutation = useMutation<{
+    ok: boolean;
+    total: number;
+    created: number;
+    updated: number;
+    skipped: number;
+  }>({
+    mutationFn: async () => {
+      const res = await fetch(apiUrl("api/google/calendar/import"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ daysBack: 30, daysAhead: 90 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Не удалось импортировать события");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Импорт завершён",
+        description: `Добавлено: ${data.created}, обновлено: ${data.updated}${
+          data.skipped ? `, пропущено: ${data.skipped}` : ""
+        }`,
+      });
+      queryClient.invalidateQueries({ queryKey: getGetWeekQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListLessonsQueryKey() });
+      queryClient.invalidateQueries({
+        queryKey: getGetDashboardTodayQueryKey(),
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Не удалось импортировать",
+        description: err.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -265,9 +311,26 @@ function GoogleSection() {
           </CardTitle>
           <CardDescription>
             События из основного Google Calendar на ближайшие две недели.
+            Можно импортировать их в расписание (Сегодня / Неделя / Месяц).
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              size="sm"
+              onClick={() => importMutation.mutate()}
+              disabled={importMutation.isPending}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {importMutation.isPending
+                ? "Импортирую..."
+                : "Импортировать в расписание"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Диапазон: −30 / +90 дней. Повторный импорт безопасен — события
+              обновляются по их Google ID, дубликаты не создаются.
+            </span>
+          </div>
           {eventsQuery.isLoading && (
             <p className="text-sm text-muted-foreground">Загрузка…</p>
           )}
