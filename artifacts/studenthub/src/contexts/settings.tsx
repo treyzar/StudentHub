@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import type { TimeFormat } from "@/lib/time";
 
 export type ThemeMode = "light" | "dark" | "system";
+export type Density = "comfortable" | "compact";
 
 export interface UserSettings {
   theme: ThemeMode;
@@ -10,6 +12,10 @@ export interface UserSettings {
   defaultLessonDurationMinutes: number;
   reminderHours: number;
   userName: string;
+  timeFormat: TimeFormat;
+  hideWeekends: boolean;
+  density: Density;
+  defaultLessonLocation: string;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -20,6 +26,10 @@ const DEFAULT_SETTINGS: UserSettings = {
   defaultLessonDurationMinutes: 90,
   reminderHours: 24,
   userName: "",
+  timeFormat: "24h",
+  hideWeekends: false,
+  density: "comfortable",
+  defaultLessonLocation: "",
 };
 
 const STORAGE_KEY = "studenthub.settings.v1";
@@ -56,6 +66,11 @@ function applyTheme(mode: ThemeMode) {
   root.classList.toggle("dark", resolved === "dark");
 }
 
+function applyDensity(density: Density) {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.density = density;
+}
+
 interface SettingsContextValue {
   settings: UserSettings;
   setSettings: (next: Partial<UserSettings>) => void;
@@ -77,6 +92,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
     return undefined;
   }, [settings.theme]);
+
+  useEffect(() => {
+    applyDensity(settings.density);
+  }, [settings.density]);
 
   const setSettings = useCallback((next: Partial<UserSettings>) => {
     setSettingsState((prev) => {

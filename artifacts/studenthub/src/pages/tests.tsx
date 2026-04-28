@@ -39,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
 import { isUrgent } from "@/lib/free-slots";
 import { useSettings } from "@/contexts/settings";
+import { formatDayTime } from "@/lib/time";
 
 const STATUS_OPTIONS = [
   { value: "scheduled", label: "Запланирован" },
@@ -396,9 +397,7 @@ export function TestsPage() {
                           : "font-medium"
                       }
                     >
-                      {format(new Date(test.scheduledAt), "d MMM HH:mm", {
-                        locale: ru,
-                      })}
+                      {formatDayTime(test.scheduledAt, settings.timeFormat)}
                       {test.status === "scheduled" &&
                       isUrgent(test.scheduledAt, settings.reminderHours)
                         ? " — скоро"

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/settings";
+import { formatTime } from "@/lib/time";
 
 const WEEKDAY_KEYS = [
   "monday",
@@ -31,12 +32,14 @@ const WEEKDAY_KEYS = [
   "sunday",
 ] as const;
 
-function weekdayLabels(weekStartsOn: 0 | 1): string[] {
+function weekdayInfo(
+  weekStartsOn: 0 | 1,
+): { label: string; weekday: number }[] {
   const base = startOfWeek(new Date(), { weekStartsOn });
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(base);
     d.setDate(base.getDate() + i);
-    return format(d, "EEEEEE", { locale: ru });
+    return { label: format(d, "EEEEEE", { locale: ru }), weekday: d.getDay() };
   });
 }
 
@@ -87,7 +90,17 @@ export function MonthPage() {
     return out;
   }, [gridStart, gridEnd, lessons]);
 
-  const labels = weekdayLabels(weekStartsOn);
+  const allWeekdays = weekdayInfo(weekStartsOn);
+  const labels = settings.hideWeekends
+    ? allWeekdays.filter((w) => w.weekday !== 0 && w.weekday !== 6)
+    : allWeekdays;
+  const visibleCells = settings.hideWeekends
+    ? cells.filter((c) => {
+        const d = c.date.getDay();
+        return d !== 0 && d !== 6;
+      })
+    : cells;
+  const colsClass = settings.hideWeekends ? "grid-cols-5" : "grid-cols-7";
   const today = new Date();
   void WEEKDAY_KEYS;
 
@@ -125,24 +138,26 @@ export function MonthPage() {
         {format(cursor, "LLLL yyyy", { locale: ru })}
       </p>
 
-      <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden border">
-        {labels.map((label) => (
+      <div
+        className={`grid ${colsClass} gap-px bg-border rounded-lg overflow-hidden border`}
+      >
+        {labels.map((w) => (
           <div
-            key={label}
+            key={w.label}
             className="bg-muted/40 px-2 py-2 text-center text-xs font-medium text-muted-foreground capitalize"
           >
-            {label}
+            {w.label}
           </div>
         ))}
 
         {isLoading
-          ? Array.from({ length: cells.length || 35 }).map((_, i) => (
+          ? Array.from({ length: visibleCells.length || 35 }).map((_, i) => (
               <div key={i} className="bg-card min-h-28 p-2">
                 <Skeleton className="h-4 w-6 mb-2" />
                 <Skeleton className="h-3 w-full" />
               </div>
             ))
-          : cells.map((cell) => {
+          : visibleCells.map((cell) => {
               const inMonth = isSameMonth(cell.date, cursor);
               const isToday = isSameDay(cell.date, today);
               const visible = cell.lessons.slice(0, 3);
@@ -180,12 +195,10 @@ export function MonthPage() {
                         style={{
                           borderLeft: `2px solid ${l.subjectColor || "var(--primary)"}`,
                         }}
-                        title={`${format(new Date(l.startsAt), "HH:mm", { locale: ru })} ${l.title}`}
+                        title={`${formatTime(l.startsAt, settings.timeFormat)} ${l.title}`}
                       >
                         <span className="text-muted-foreground mr-1">
-                          {format(new Date(l.startsAt), "HH:mm", {
-                            locale: ru,
-                          })}
+                          {formatTime(l.startsAt, settings.timeFormat)}
                         </span>
                         {l.title}
                       </div>

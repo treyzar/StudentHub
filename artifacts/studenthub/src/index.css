@@ -214,4 +214,10 @@
   a[href] {
     cursor: pointer;
   }
+  html[data-density="compact"] {
+    font-size: 14px;
+  }
+  html[data-density="compact"] .min-h-28 {
+    min-height: 5rem;
+  }
 }

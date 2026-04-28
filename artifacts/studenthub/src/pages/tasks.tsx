@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
 import { isUrgent } from "@/lib/free-slots";
 import { useSettings } from "@/contexts/settings";
+import { formatDayTime } from "@/lib/time";
 
 const STATUS_OPTIONS = [
   { value: "todo", label: "К выполнению" },
@@ -421,9 +422,7 @@ export function TasksPage() {
                           : "text-muted-foreground"
                       }
                     >
-                      {format(new Date(task.dueDate), "d MMM HH:mm", {
-                        locale: ru,
-                      })}
+                      {formatDayTime(task.dueDate, settings.timeFormat)}
                     </div>
                     {task.status !== "done" &&
                       isUrgent(task.dueDate, settings.reminderHours) && (

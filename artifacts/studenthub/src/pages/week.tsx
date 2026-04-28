@@ -38,6 +38,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
 import { useSettings } from "@/contexts/settings";
+import { formatTime } from "@/lib/time";
 
 interface LessonFormState {
   title: string;
@@ -91,6 +92,7 @@ interface LessonDialogProps {
   lesson?: Lesson | null;
   defaultDate?: string;
   defaultDurationMinutes?: number;
+  defaultLocation?: string;
   onSaved: () => void;
 }
 
@@ -109,6 +111,7 @@ function LessonDialog({
   lesson,
   defaultDate,
   defaultDurationMinutes = 90,
+  defaultLocation = "",
   onSaved,
 }: LessonDialogProps) {
   const { toast } = useToast();
@@ -125,6 +128,9 @@ function LessonDialog({
         const f = emptyForm(defaultDate);
         if (f.startsAt) {
           f.endsAt = addMinutesToLocal(f.startsAt, defaultDurationMinutes);
+        }
+        if (defaultLocation) {
+          f.location = defaultLocation;
         }
         setForm(f);
       }
@@ -297,6 +303,18 @@ export function WeekPage() {
     weekStart: weekStart.toISOString().split("T")[0],
   });
 
+  const visibleDays = data
+    ? settings.hideWeekends
+      ? data.days.filter((d) => {
+          const day = new Date(d.date).getDay();
+          return day !== 0 && day !== 6;
+        })
+      : data.days
+    : [];
+  const colsClass = settings.hideWeekends
+    ? "grid-cols-1 lg:grid-cols-5"
+    : "grid-cols-1 lg:grid-cols-7";
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetWeekQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListLessonsQueryKey() });
@@ -382,8 +400,8 @@ export function WeekPage() {
             {format(new Date(data.weekStart), "d MMMM", { locale: ru })} –{" "}
             {format(new Date(data.weekEnd), "d MMMM", { locale: ru })}
           </p>
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-            {data.days.map((day) => (
+          <div className={`grid gap-4 ${colsClass}`}>
+            {visibleDays.map((day) => (
               <div key={day.date} className="border rounded-lg p-3 bg-card">
                 <div className="font-medium text-center mb-3 pb-2 border-b">
                   <div className="capitalize text-sm">
@@ -404,8 +422,8 @@ export function WeekPage() {
                     >
                       <div className="font-semibold pr-12">{l.title}</div>
                       <div className="text-muted-foreground">
-                        {format(new Date(l.startsAt), "HH:mm", { locale: ru })}{" "}
-                        – {format(new Date(l.endsAt), "HH:mm", { locale: ru })}
+                        {formatTime(l.startsAt, settings.timeFormat)} –{" "}
+                        {formatTime(l.endsAt, settings.timeFormat)}
                       </div>
                       {l.location && (
                         <div className="text-muted-foreground">
@@ -462,6 +480,7 @@ export function WeekPage() {
         lesson={editing}
         defaultDate={defaultDate}
         defaultDurationMinutes={settings.defaultLessonDurationMinutes}
+        defaultLocation={settings.defaultLessonLocation}
         onSaved={invalidate}
       />
     </div>

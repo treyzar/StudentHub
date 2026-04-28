@@ -36,7 +36,13 @@ import {
   Moon,
   Monitor,
 } from "lucide-react";
-import { useSettings, type ThemeMode } from "@/contexts/settings";
+import {
+  useSettings,
+  type ThemeMode,
+  type Density,
+} from "@/contexts/settings";
+import type { TimeFormat } from "@/lib/time";
+import { RotateCcw } from "lucide-react";
 
 const apiUrl = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
@@ -470,39 +476,104 @@ function ProfileSection() {
 function AppearanceSection() {
   const { settings, setSettings } = useSettings();
 
-  const options: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
+  const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
     { value: "light", label: "Светлая", icon: Sun },
     { value: "dark", label: "Тёмная", icon: Moon },
     { value: "system", label: "Как в системе", icon: Monitor },
+  ];
+  const densityOptions: { value: Density; label: string; hint: string }[] = [
+    { value: "comfortable", label: "Просторная", hint: "Стандартный размер" },
+    { value: "compact", label: "Компактная", hint: "Больше помещается" },
+  ];
+  const timeOptions: { value: TimeFormat; label: string; hint: string }[] = [
+    { value: "24h", label: "24 часа", hint: "14:30" },
+    { value: "12h", label: "12 часов", hint: "2:30 PM" },
   ];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Внешний вид</CardTitle>
-        <CardDescription>Тема оформления интерфейса.</CardDescription>
+        <CardDescription>
+          Тема, плотность и формат времени в интерфейсе.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 gap-3 max-w-md">
-          {options.map((opt) => {
-            const Icon = opt.icon;
-            const active = settings.theme === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setSettings({ theme: opt.value })}
-                className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
-                  active
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm">{opt.label}</span>
-              </button>
-            );
-          })}
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label>Тема</Label>
+          <div className="grid grid-cols-3 gap-3 max-w-md">
+            {themeOptions.map((opt) => {
+              const Icon = opt.icon;
+              const active = settings.theme === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSettings({ theme: opt.value })}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors ${
+                    active
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-sm">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Плотность интерфейса</Label>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            {densityOptions.map((opt) => {
+              const active = settings.density === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSettings({ density: opt.value })}
+                  className={`flex flex-col items-start gap-1 p-4 rounded-lg border-2 transition-colors text-left ${
+                    active
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-sm font-medium">{opt.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {opt.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Формат времени</Label>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            {timeOptions.map((opt) => {
+              const active = settings.timeFormat === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSettings({ timeFormat: opt.value })}
+                  className={`flex flex-col items-start gap-1 p-4 rounded-lg border-2 transition-colors text-left ${
+                    active
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="text-sm font-medium">{opt.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {opt.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -517,15 +588,20 @@ function SchedulePreferencesSection() {
   const [duration, setDuration] = useState(
     String(settings.defaultLessonDurationMinutes),
   );
+  const [defaultLocation, setDefaultLocation] = useState(
+    settings.defaultLessonLocation,
+  );
 
   useEffect(() => {
     setDayStart(settings.dayStart);
     setDayEnd(settings.dayEnd);
     setDuration(String(settings.defaultLessonDurationMinutes));
+    setDefaultLocation(settings.defaultLessonLocation);
   }, [
     settings.dayStart,
     settings.dayEnd,
     settings.defaultLessonDurationMinutes,
+    settings.defaultLessonLocation,
   ]);
 
   const save = () => {
@@ -548,6 +624,7 @@ function SchedulePreferencesSection() {
       dayStart,
       dayEnd,
       defaultLessonDurationMinutes: dur,
+      defaultLessonLocation: defaultLocation.trim(),
     });
     toast({ title: "Настройки расписания сохранены" });
   };
@@ -555,7 +632,8 @@ function SchedulePreferencesSection() {
   const dirty =
     dayStart !== settings.dayStart ||
     dayEnd !== settings.dayEnd ||
-    duration !== String(settings.defaultLessonDurationMinutes);
+    duration !== String(settings.defaultLessonDurationMinutes) ||
+    defaultLocation.trim() !== settings.defaultLessonLocation;
 
   return (
     <Card>
@@ -623,8 +701,69 @@ function SchedulePreferencesSection() {
           </p>
         </div>
 
+        <div className="space-y-2 max-w-md">
+          <Label htmlFor="default-location">Аудитория по умолчанию</Label>
+          <Input
+            id="default-location"
+            value={defaultLocation}
+            onChange={(e) => setDefaultLocation(e.target.value)}
+            placeholder="Например: 305 ауд."
+          />
+          <p className="text-xs text-muted-foreground">
+            Подставляется в поле «Место» при создании новой пары.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 max-w-md py-2">
+          <div className="space-y-0.5">
+            <Label htmlFor="hide-weekends">Скрывать выходные</Label>
+            <p className="text-xs text-muted-foreground">
+              Не показывать субботу и воскресенье в неделе и месяце.
+            </p>
+          </div>
+          <Switch
+            id="hide-weekends"
+            checked={settings.hideWeekends}
+            onCheckedChange={(v) => setSettings({ hideWeekends: v })}
+          />
+        </div>
+
         <Button onClick={save} disabled={!dirty}>
           Сохранить
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ResetSection() {
+  const { reset } = useSettings();
+  const { toast } = useToast();
+
+  const handleReset = () => {
+    if (
+      !confirm(
+        "Сбросить все настройки до значений по умолчанию? Данные (пары, задачи и т.п.) не будут затронуты.",
+      )
+    )
+      return;
+    reset();
+    toast({ title: "Настройки сброшены" });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Сброс настроек</CardTitle>
+        <CardDescription>
+          Вернуть все настройки интерфейса к значениям по умолчанию. Не удаляет
+          твои данные.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" onClick={handleReset}>
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Сбросить настройки
         </Button>
       </CardContent>
     </Card>
@@ -837,8 +976,9 @@ export function SettingsPage() {
       <AppearanceSection />
       <SchedulePreferencesSection />
       <ReminderSection />
-      <DataManagementSection />
       <GoogleSection />
+      <DataManagementSection />
+      <ResetSection />
     </div>
   );
 }

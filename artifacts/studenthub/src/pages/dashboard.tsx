@@ -6,6 +6,7 @@ import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { useSettings } from "@/contexts/settings";
+import { formatTime } from "@/lib/time";
 import { computeFreeSlots } from "@/lib/free-slots";
 
 export function Dashboard() {
@@ -94,7 +95,7 @@ export function Dashboard() {
                         <p className="text-sm text-muted-foreground">{lesson.subjectName}</p>
                       </div>
                       <div className="text-sm text-right">
-                        <div>{format(new Date(lesson.startsAt), "HH:mm", { locale: ru })} – {format(new Date(lesson.endsAt), "HH:mm", { locale: ru })}</div>
+                        <div>{formatTime(lesson.startsAt, settings.timeFormat)} – {formatTime(lesson.endsAt, settings.timeFormat)}</div>
                         <div className="text-muted-foreground">{lesson.location}</div>
                       </div>
                     </div>
@@ -114,7 +115,7 @@ export function Dashboard() {
               {freeSlots.map((slot, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 bg-secondary rounded-md">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{format(new Date(slot.startsAt), "HH:mm", { locale: ru })} – {format(new Date(slot.endsAt), "HH:mm", { locale: ru })}</span>
+                  <span className="text-sm font-medium">{formatTime(slot.startsAt, settings.timeFormat)} – {formatTime(slot.endsAt, settings.timeFormat)}</span>
                   <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded-full ml-auto">
                     {slot.durationMinutes} мин
                   </span>

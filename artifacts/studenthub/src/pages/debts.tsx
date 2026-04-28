@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isoToDatetimeLocal, datetimeLocalToIso } from "@/lib/date-input";
 import { isUrgent } from "@/lib/free-slots";
 import { useSettings } from "@/contexts/settings";
+import { formatDayTime } from "@/lib/time";
 
 const STATUS_OPTIONS = [
   { value: "open", label: "Открыт" },
@@ -373,9 +374,7 @@ export function DebtsPage() {
                       }
                     >
                       До{" "}
-                      {format(new Date(debt.deadline), "d MMM HH:mm", {
-                        locale: ru,
-                      })}
+                      {formatDayTime(debt.deadline, settings.timeFormat)}
                       {debt.status !== "closed" &&
                       isUrgent(debt.deadline, settings.reminderHours)
                         ? " — скоро"
