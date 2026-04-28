@@ -7,6 +7,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   Settings,
+  Sheet,
   Wallet,
   PenTool,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/", label: "Сегодня", icon: LayoutDashboard },
   { href: "/week", label: "Неделя", icon: CalendarDays },
   { href: "/month", label: "Месяц", icon: CalendarRange },
+  { href: "/schedule", label: "Расписание", icon: Sheet },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/subjects", label: "Предметы", icon: BookOpen },
   { href: "/debts", label: "Долги", icon: Wallet },

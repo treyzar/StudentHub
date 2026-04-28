@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout";
 import { Dashboard } from "@/pages/dashboard";
 import { WeekPage } from "@/pages/week";
 import { MonthPage } from "@/pages/month";
+import { SchedulePage } from "@/pages/schedule";
 import { TasksPage } from "@/pages/tasks";
 import { SubjectsPage } from "@/pages/subjects";
 import { SubjectDetailPage } from "@/pages/subject-detail";
@@ -26,6 +27,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/week" component={WeekPage} />
         <Route path="/month" component={MonthPage} />
+        <Route path="/schedule" component={SchedulePage} />
         <Route path="/tasks" component={TasksPage} />
         <Route path="/subjects" component={SubjectsPage} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />

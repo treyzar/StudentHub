@@ -295,6 +295,63 @@ router.post("/google/calendar/import", async (req, res): Promise<void> => {
   }
 });
 
+const SCHEDULE_SHEET_ID = "1lkHJsU31BtzsaIZ9Vn6V9LkffVMc2L53OeneOabh5K0";
+const SCHEDULE_SHEET_GID = 785294066;
+
+router.get("/google/schedule-sheet", async (_req, res): Promise<void> => {
+  const client = await getAuthorizedClient();
+  if (!client) {
+    res.status(401).json({ error: "Google не подключён" });
+    return;
+  }
+  try {
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SCHEDULE_SHEET_ID,
+      includeGridData: false,
+    });
+    const sheet = (meta.data.sheets ?? []).find(
+      (s) => s.properties?.sheetId === SCHEDULE_SHEET_GID,
+    );
+    if (!sheet?.properties?.title) {
+      res.status(404).json({ error: "Лист с расписанием не найден" });
+      return;
+    }
+    const sheetTitle = sheet.properties.title;
+
+    const valuesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SCHEDULE_SHEET_ID,
+      range: `'${sheetTitle.replace(/'/g, "''")}'`,
+      valueRenderOption: "FORMATTED_VALUE",
+      dateTimeRenderOption: "FORMATTED_STRING",
+    });
+
+    const rows = (valuesRes.data.values ?? []).map((row) =>
+      row.map((cell) => (cell == null ? "" : String(cell))),
+    );
+
+    res.json({
+      spreadsheetId: SCHEDULE_SHEET_ID,
+      sheetTitle,
+      sheetUrl: `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/edit?gid=${SCHEDULE_SHEET_GID}`,
+      title: meta.data.properties?.title ?? null,
+      rows,
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch schedule sheet");
+    const message = err instanceof Error ? err.message : "unknown error";
+    if (/permission|403/i.test(message)) {
+      res.status(403).json({
+        error:
+          "Нет доступа к таблице. Откройте доступ для подключённого Google аккаунта.",
+      });
+      return;
+    }
+    res.status(500).json({ error: "Не удалось загрузить таблицу расписания" });
+  }
+});
+
 router.get("/google/sheets/list", async (_req, res): Promise<void> => {
   const client = await getAuthorizedClient();
   if (!client) {
