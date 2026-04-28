@@ -54,10 +54,14 @@ router.get("/google/auth", (req, res): void => {
   const state = crypto.randomBytes(24).toString("hex");
   const returnTo = typeof req.query.returnTo === "string" ? req.query.returnTo : "/settings";
 
+  const isHttps =
+    req.secure ||
+    req.get("x-forwarded-proto") === "https" ||
+    Boolean(process.env.REPLIT_DEV_DOMAIN);
   const cookieOptions = {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: true,
+    secure: isHttps,
     maxAge: 10 * 60 * 1000,
     path: "/",
   };

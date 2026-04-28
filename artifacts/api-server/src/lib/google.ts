@@ -30,12 +30,11 @@ export function getRedirectUri(): string {
   const explicit = process.env.GOOGLE_REDIRECT_URI;
   if (explicit) return explicit;
   const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS;
-  if (!domain) {
-    throw new Error(
-      "GOOGLE_REDIRECT_URI is not set and REPLIT_DEV_DOMAIN is unavailable",
-    );
+  if (domain) {
+    return `https://${domain.split(",")[0].trim()}/api/google/callback`;
   }
-  return `https://${domain.split(",")[0].trim()}/api/google/callback`;
+  const port = process.env.PORT || "8080";
+  return `http://localhost:${port}/api/google/callback`;
 }
 
 export function buildOAuthClient(): OAuth2Client {
